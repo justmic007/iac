@@ -101,6 +101,22 @@ Resources:
           Value: Public Subnet 2
       VpcId: !Ref VPC
 
+# Create Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: Public Route Table
+      VpcId: !Ref VPC
+
+# Add Public Route to the Public Route Table
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
 
 
 Outputs:

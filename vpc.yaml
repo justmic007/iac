@@ -62,6 +62,15 @@ Resources:
         - Key: Name
           Value: Sample VPC
 
+# Creates Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: Sample IGW
+
+
 
 Outputs:
 

@@ -85,7 +85,7 @@ Resources:
       CidrBlock: !Ref PublicSubnet1CIDR
       MapPublicIpOnLaunch: true
       Tags:
-        - Name:
+        - Key: Name
           Value: Public Subnet 1
       VpcId: !Ref VPC
 
@@ -97,7 +97,7 @@ Resources:
       CidrBlock: !Ref PublicSubnet2CIDR
       MapPublicIpOnLaunch: true
       Tags:
-        - Name:
+        - Key: Name
           Value: Public Subnet 2
       VpcId: !Ref VPC
 
@@ -131,6 +131,54 @@ Resources:
     Properties: 
       RouteTableId: !Ref PublicRouteTable
       SubnetId: !Ref PublicSubnet2
+
+# Create Private Subnet 1
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 1 | App Tier
+      VpcId: !Ref VPC
+
+# Create Private Subnet 2
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 2 | App Tier
+      VpcId: !Ref VPC
+
+# Create Private Subnet 3
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 3 | Database Tier
+      VpcId: !Ref VPC
+
+# Create Private Subnet 4
+  PrivateSubnet4:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet4CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet 4 | Database Tier
+      VpcId: !Ref VPC
 
 
 Outputs:

@@ -236,5 +236,20 @@ Resources:
           Tags:
           - Key: Name
             Value: Web Server Security Group
+
+# Creates Security Group for RDS 
+    DatabaseSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+          GroupDescription: Enable access to database ONLY from Web Server Security Group
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 3306
+            ToPort: 3306
+            SourceSecurityGroupId: !Ref WebServerSecurityGroup
+          Tags:
+          - Key: Name
+            Value: Database Security Group
 Outputs:
 

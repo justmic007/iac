@@ -198,5 +198,20 @@ Resources:
           Tags:
           - Key: Name
             Value: ALB Security Group
+
+# Creates Security Group for Bastion Host
+    SSHSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+          GroupDescription: SSH Security Group
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: !Ref SSHLocation
+          Tags:
+          - Key: Name
+            Value: SSH Security Group
 Outputs:
 

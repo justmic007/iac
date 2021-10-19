@@ -2,7 +2,32 @@ AWSTemplateFormatVersion: 2010-09-09
 
 Description: This template creates a VPC with public and private subnets in different availability zones
 
+#Metadata for grouping parameters
 Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: 'VPC CIDR'
+        Parameters:
+          - VpcCIDR
+
+      -
+        Label:
+          default: 'Subnet CIDR'
+        Parameters:
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
+          - PrivateSubnet1CIDR
+          - PrivateSubnet2CIDR
+          - PrivateSubnet3CIDR
+          - PrivateSubnet4CIDR
+
+      -
+        Label:
+          default: 'SSH CIDR'
+        Parameters:
+          - SSHLocation
 
 Parameters:
   VpcCIDR:
@@ -181,75 +206,75 @@ Resources:
       VpcId: !Ref VPC
 
 # Creates Security Group for Application Load Balancer
-    ALBSecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-          GroupDescription: Allow HTTP/HTTPS access on port 80/443
-          VpcId: !Ref VPC
-          SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: 80
-            ToPort: 80
-            CidrIp: 0.0.0.0/0
-          - IpProtocol: tcp
-            FromPort: 443
-            ToPort: 443
-            CidrIp: 0.0.0.0/0
-          Tags:
-          - Key: Name
-            Value: ALB Security Group
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow HTTP/HTTPS access on port 80/443
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        Tags:
+        - Key: Name
+          Value: ALB Security Group
 
 # Creates Security Group for Bastion Host
-    SSHSecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-          GroupDescription: SSH Security Group
-          VpcId: !Ref VPC
-          SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: 22
-            ToPort: 22
-            CidrIp: !Ref SSHLocation
-          Tags:
-          - Key: Name
-            Value: SSH Security Group
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: SSH Security Group
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHLocation
+        Tags:
+        - Key: Name
+          Value: SSH Security Group
 
 # Creates Security Group for EC2 Instances(Web Servers)
-    WebServerSecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-          GroupDescription: Enable HTTP/HTTPS access via port 80/443 locked down to the application load balancer AND ssh traffic from the ssh security group
-          VpcId: !Ref VPC
-          SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: 80
-            ToPort: 80
-            SourceSecurityGroupId: !Ref ALBSecurityGroup
-          - IpProtocol: tcp
-            FromPort: 443
-            ToPort: 443
-            SourceSecurityGroupId: !Ref ALBSecurityGroup
-          - IpProtocol: tcp
-            FromPort: 22
-            ToPort: 22
-            SourceSecurityGroupId: !Ref SSHSecurityGroup
-          Tags:
-          - Key: Name
-            Value: Web Server Security Group
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Enable HTTP/HTTPS access via port 80/443 locked down to the application load balancer AND ssh traffic from the ssh security group
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref SSHSecurityGroup
+        Tags:
+        - Key: Name
+          Value: Web Server Security Group
 
 # Creates Security Group for RDS 
-    DatabaseSecurityGroup:
-      Type: AWS::EC2::SecurityGroup
-      Properties:
-          GroupDescription: Enable access to database ONLY from Web Server Security Group
-          VpcId: !Ref VPC
-          SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: 3306
-            ToPort: 3306
-            SourceSecurityGroupId: !Ref WebServerSecurityGroup
-          Tags:
-          - Key: Name
-            Value: Database Security Group
-Outputs:
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Enable access to database ONLY from Web Server Security Group
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref WebServerSecurityGroup
+        Tags:
+        - Key: Name
+          Value: Database Security Group
+#Outputs:
 

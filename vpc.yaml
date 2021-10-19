@@ -180,6 +180,23 @@ Resources:
           Value: Private Subnet 4 | Database Tier
       VpcId: !Ref VPC
 
-
+# Creates Security Group for Application Load Balancer
+    ALBSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+          GroupDescription: Allow HTTP/HTTPS access on port 80/443
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: 443
+            ToPort: 443
+            CidrIp: 0.0.0.0/0
+          Tags:
+          - Key: Name
+            Value: ALB Security Group
 Outputs:
 

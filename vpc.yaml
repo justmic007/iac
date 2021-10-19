@@ -213,5 +213,28 @@ Resources:
           Tags:
           - Key: Name
             Value: SSH Security Group
+
+# Creates Security Group for EC2 Instances(Web Servers)
+    WebServerSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+          GroupDescription: Enable HTTP/HTTPS access via port 80/443 locked down to the application load balancer AND ssh traffic from the ssh security group
+          VpcId: !Ref VPC
+          SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            SourceSecurityGroupId: !Ref ALBSecurityGroup
+          - IpProtocol: tcp
+            FromPort: 443
+            ToPort: 443
+            SourceSecurityGroupId: !Ref ALBSecurityGroup
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            SourceSecurityGroupId: !Ref SSHSecurityGroup
+          Tags:
+          - Key: Name
+            Value: Web Server Security Group
 Outputs:
 

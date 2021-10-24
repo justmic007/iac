@@ -12,3 +12,11 @@
     ii. ssh
     iii. EC2
     iv. RDS
+
+# Create a NAT Gateway
+1. Allocate Elastic IP Address
+2. Create NAT Gateway in each Public Subnets
+3. Create a Private Route Table 1
+4. Add a route to point internet-bound traffic to the NAT Gateway
+5. Associate Private Subnets with Private Route Table
+6. Repeat step 3, 4, 5 Private Route Table 2

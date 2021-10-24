@@ -28,8 +28,11 @@ Metadata:
           default: 'SSH CIDR'
         Parameters:
           - SSHLocation
-
 Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+
   VpcCIDR:
     Default: 10.0.0.0/16
     Description: Please enter the IP range (CIDR notation) for this vpc
@@ -282,66 +285,66 @@ Outputs:
   VPC:
     Description: VPC ID
     Export:
-      Name: !Sub ${AWS::StackName}-VPC # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-VPC # Pseudo Parameter
     Value: !Ref VPC
 
   PublicSubnet1:
     Description: Public Subnet 1 ID
     Export:
-      Name: !Sub ${AWS::StackName}-PublicSubnet1 # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-PublicSubnet1 # Pseudo Parameter
     Value: !Ref PublicSubnet1
 
   PublicSubnet2:
     Description: Public Subnet 2 ID
     Export:
-      Name: !Sub ${AWS::StackName}-PublicSubnet2 # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-PublicSubnet2 # Pseudo Parameter
     Value: !Ref PublicSubnet2
 
   PrivateSubnet1:
     Description: Private Subnet 1 ID
     Export:
-      Name: !Sub ${AWS::StackName}-PrivateSubnet1 # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-PrivateSubnet1 # Pseudo Parameter
     Value: !Ref PrivateSubnet1
 
   PrivateSubnet2:
     Description: Private Subnet 2 ID
     Export:
-      Name: !Sub ${AWS::StackName}-PrivateSubnet2 # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-PrivateSubnet2 # Pseudo Parameter
     Value: !Ref PrivateSubnet2
 
   PrivateSubnet3:
     Description: Private Subnet 3 ID
     Export:
-      Name: !Sub ${AWS::StackName}-PrivateSubnet3 # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-PrivateSubnet3 # Pseudo Parameter
     Value: !Ref PrivateSubnet3
 
   PrivateSubnet4:
     Description: Private Subnet 4 ID
     Export:
-      Name: !Sub ${AWS::StackName}-PrivateSubnet4 # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-PrivateSubnet4 # Pseudo Parameter
     Value: !Ref PrivateSubnet4
 
   ALBSecurityGroup:
     Description: Application Load Balancer Security Group ID
     Export:
-      Name: !Sub ${AWS::StackName}-ALBSecurityGroup # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-ALBSecurityGroup # Pseudo Parameter
     Value: !Ref ALBSecurityGroup
 
   SSHSecurityGroup:
     Description: SSH Security Group ID
     Export:
-      Name: !Sub ${AWS::StackName}-SSHSecurityGroup # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-SSHSecurityGroup # Pseudo Parameter
     Value: !Ref SSHSecurityGroup
 
   WebServerSecurityGroup:
     Description: WebSever Security Group ID
     Export:
-      Name: !Sub ${AWS::StackName}-WebServerSecurityGroup # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-WebServerSecurityGroup # Pseudo Parameter
     Value: !Ref WebServerSecurityGroup
 
   DatabaseSecurityGroup:
     Description: Database Security Group ID
     Export:
-      Name: !Sub ${AWS::StackName}-DatabaseSecurityGroup # Pseudo Parameter
+      Name: !Sub ${EnvironmentName}-DatabaseSecurityGroup # Pseudo Parameter
     Value: !Ref DatabaseSecurityGroup
 

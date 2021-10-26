@@ -105,3 +105,32 @@ Parameters:
     Type: String
 
 Resources:
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: The Subnet group for rds database
+      SubnetIds:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnet3
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnet4
+      Tags:
+        - Key: Name
+          Value: Database Subnets
+
+  DatabaseInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: !Ref DatabaseAllocatedStorage
+      AvailabilityZone: !Select [0, !GetAZs ''] # Setup the Master DB on the first AZ. Note: This parameter cannot be set if the MultiAZ parameter is set to true
+      BackupRetentionPeriod: !Ref DatabaseBackupRetentionPeriod
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      DBInstanceIdentifier: !Ref DatabaseInstanceIdentifier
+      DBName: !Ref DatabaseName
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      Engine: MySQL
+      EngineVersion: 5.7.31
+      MasterUsername: !Ref DatabaseUser
+      MasterUserPassword: !Ref DatabasePassword
+      MultiAZ: !Ref MultiAZDatabase
+      VPCSecurityGroups:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-DatabaseSecurityGroup
+

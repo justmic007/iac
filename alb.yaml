@@ -3,6 +3,18 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: This template creates an Application Load Balancer
 
 Metadata:
+AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Certificate ARN
+        Parameters:
+          - AcmCertificate
+      -
+        Label:
+          default: Export VPC Stack Name
+        Parameters:
+          - EnvironmentName
 
 Parameters:
   AcmCertificate:

@@ -4,6 +4,25 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: This template creates an rds database with mysql engine
 
 Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Export VPC Stack Name
+        Parameters:
+          - EnvironmentName
+      -
+        Label:
+          default: Database Parameters
+        Parameters:
+          - DatabaseInstanceIdentifier
+          - DatabaseName
+          - DatabaseUser
+          - DatabasePassword
+          - DatabaseBackupRetentionPeriod
+          - DatabaseAllocatedStorage
+          - DatabaseInstanceClass
+          - MultiAZDatabase
 
 Parameters:
   EnvironmentName:

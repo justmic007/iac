@@ -31,3 +31,4 @@
 1. aws cloudformation create-stack --stack-name vpc-nat-gateway --template-body file://nat-gateway.yaml --parameters file://nat-gateway-params.json --region=us-west-2
 2. aws cloudformation create-stack --stack-name vpc --template-body file://rds.yaml --parameters file://rds-params.json --region=us-west-2
 3. aws cloudformation create-stack --stack-name vpc-rds --template-body file://rds.yaml --parameters file://rds-params.json --region=us-west-2
+4. aws cloudformation delete-stack --stack-name vpc --region=us-west-2

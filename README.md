@@ -26,9 +26,18 @@
 2. Create the Metadata
 3. Create the Resources
 
+# Create Application Load Balancer
+1. Create the Parameters
+2. Create the Metadata
+3. Create the Resources
 
 # Run commands
-1. aws cloudformation create-stack --stack-name vpc-nat-gateway --template-body file://nat-gateway.yaml --parameters file://nat-gateway-params.json --region=us-west-2
-2. aws cloudformation create-stack --stack-name vpc --template-body file://rds.yaml --parameters file://rds-params.json --region=us-west-2
+1. aws cloudformation create-stack --stack-name vpc --template-body file://vpc.yaml --parameters file://vpc-params.json --region=us-west-2
+
+2. aws cloudformation create-stack --stack-name vpc-nat-gateway --template-body file://nat-gateway.yaml --parameters file://nat-gateway-params.json --region=us-west-2
+
 3. aws cloudformation create-stack --stack-name vpc-rds --template-body file://rds.yaml --parameters file://rds-params.json --region=us-west-2
-4. aws cloudformation delete-stack --stack-name vpc --region=us-west-2
+
+4. aws cloudformation create-stack --stack-name vpc-alb --template-body file://alb.yaml --parameters file://alb-params.json --region=us-west-2
+
+5. aws cloudformation delete-stack --stack-name vpc --region=us-west-2

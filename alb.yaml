@@ -26,6 +26,24 @@ Parameters:
     Description: An environment name that will be prefixed to resource names
     Type: String
 
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.micro
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AmazonImageID:
+    Description: The ID of the Amazon machine image (AMI)
+    Type: String
+    Default: ami-036d46416a34a611c
+    AllowedValues:
+      - ami-036d46416a34a611c
+      - ami-09889d8d54f9e0a0e
+
 Resources:
 #Create an Application Load Balancer
   ApplicationLoadBalancer:

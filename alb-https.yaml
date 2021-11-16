@@ -50,7 +50,7 @@ Resources:
             Port: '443'
             Protocol: HTTPS
             StatusCode: HTTP_301
-          # Type: redirect
+          Type: redirect
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 80
       Protocol: HTTP
@@ -63,7 +63,8 @@ Resources:
         - CertificateArn: !Ref AcmCertificate
       DefaultActions:
         - Type: forward
-          TargetGroupArn: !Ref ALBTargetGroup
+          TargetGroupArn:
+            - Ref: ALBTargetGroup
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 443
       Protocol: HTTPS

@@ -2,5 +2,9 @@
   {
     "ParameterKey": "EnvironmentName",
     "ParameterValue": "sharpstudy"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "workfromhome-key-pair"
   }
 ]

@@ -44,6 +44,11 @@ Parameters:
       - ami-036d46416a34a611c
       - ami-09889d8d54f9e0a0e
 
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
 Resources:
 #Create an Application Load Balancer
   ApplicationLoadBalancer:
@@ -115,6 +120,7 @@ Resources:
     Properties:
       HealthCheckIntervalSeconds: 10
       HealthCheckPath: /
+      HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       Matcher:
@@ -125,6 +131,41 @@ Resources:
       UnhealthyThresholdCount: 5
       VpcId:
         Fn::ImportValue: !Sub ${EnvironmentName}-VPC
+
+# Create AutoScaling Launch Configuration
+  WebAppAutoScalingLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      # IamInstanceProfile: String
+      ImageId: !Ref AmazonImageID
+      InstanceMonitoring: false  # Enable for CloudWatch which will cost a fee
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups: 
+        - Fn::ImportValue: !Sub ${EnvironmentName}-WebServerSecurityGroup
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install unzip awscli -y
+            apt-get install apache2 -y
+            echo "Healthy" > /var/www/html/index.html
+            systemctl start apache2.service
+
+  WebAppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      DesiredCapacity: '2'
+      # HealthCheckType: ELB
+      HealthCheckGracePeriod: 0
+      LaunchConfigurationName: !Ref WebAppAutoScalingLaunchConfig
+      MaxSize: '5'
+      MinSize: '2'
+      TargetGroupARNs:
+        - Ref: ALBTargetGroup
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnets
 
 Outputs:
 # Export Target Group

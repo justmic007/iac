@@ -324,6 +324,18 @@ Outputs:
       Name: !Sub ${EnvironmentName}-PrivateSubnet4 # Pseudo Parameter
     Value: !Ref PrivateSubnet4
 
+  PrivateSubnets:
+    Description: A list of Private Subnets
+    Export:
+      Name: !Sub ${EnvironmentName}-PrivateSubnets
+    Value: !Join [",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+
+  PublicSubnets:
+    Description: A list of Public Subnets
+    Export:
+      Name: !Sub ${EnvironmentName}-PublicSubnets
+    Value: !Join [",", [ !Ref PublicSubnet1, !Ref PublicSubnet2]]
+  
   ALBSecurityGroup:
     Description: Application Load Balancer Security Group ID
     Export:

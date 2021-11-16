@@ -31,6 +31,12 @@
 2. Create the Metadata
 3. Create the Resources
 
+# Create a Autoscaling Group
+1. Create the Parameter
+2. Create a Launch Configuration
+3. Create the Autoscaling Group
+4. Attach Launch Configuration to the Autoscaling Group by referencing the LaunchConfigurationName
+
 # Run commands
 1. aws cloudformation create-stack --stack-name vpc --template-body file://vpc.yaml --parameters file://vpc-params.json --region=us-west-2
 

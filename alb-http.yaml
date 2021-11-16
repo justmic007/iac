@@ -1,0 +1,190 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: This template creates an Application Load Balancer
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: Certificate ARN
+        Parameters:
+          - AcmCertificate
+      -
+        Label:
+          default: Export VPC Stack Name
+        Parameters:
+          - EnvironmentName
+
+Parameters:
+  # AcmCertificate:
+    # Default: arn:aws:acm:us-west-2:080196198125:certificate/0835663a-4e52-4d6c-9fbd-ea15e8fd5190
+    # Description: The ARN of the AWS Certification Manager's Certificate
+    # Type: String
+
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.micro
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AmazonImageID:
+    Description: The ID of the Amazon machine image (AMI)
+    Type: String
+    Default: ami-036d46416a34a611c
+    AllowedValues:
+      - ami-036d46416a34a611c
+      - ami-09889d8d54f9e0a0e
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+Resources:
+#Create an Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: SharpstudyLoadBalancer
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-ALBSecurityGroup
+      Subnets: # Application Load Balancer ALWAYS has be in the public subnets
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PublicSubnet1
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PublicSubnet2
+
+#Create a Listener on Port 80. for HTTP only. --------> Disable when ssl certificate is ready
+  ALBListenerNoSslCertificate:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties: 
+        DefaultActions: 
+          - Type: forward
+            TargetGroupArn: !Ref ALBTargetGroup
+        LoadBalancerArn: !Ref ApplicationLoadBalancer
+        Port: 80
+        Protocol: HTTP
+
+# Create a Listener Rule on Port 80. for HTTP only. --------> Disable when ssl certificate is ready
+  ALBListenerNoSslCertificateRule:
+      Type: AWS::ElasticLoadBalancingV2::ListenerRule
+      Properties: 
+        Actions: 
+          - Type: forward
+            TargetGroupArn: !Ref ALBTargetGroup
+        Conditions: 
+          - Field: path-pattern
+            Values: [/]
+        ListenerArn: !Ref ALBListenerNoSslCertificate
+        Priority: 1
+
+#Create a Listener on Port 80 --------> Enable when ssl certificate is ready
+  # ALBListenerNoSslCertificate:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     DefaultActions: # This is used to redirect from http to https
+  #       - RedirectConfig:
+  #           Host: '#{host}'
+  #           Path: '/#{path}'
+  #           Port: 443
+  #           Protocol: HTTPS
+  #           StatusCode: HTTP_301
+  #         Type: redirect # or authenticate-cognito | authenticate-oidc | fixed-response | forward | redirect
+  #     LoadBalancerArn: !Ref ApplicationLoadBalancer
+  #     Port: 80
+  #     Protocol: HTTP
+
+# Create a Listener on Port 443 --------> Enable when ssl certificate is ready
+  # ALBListenerSslCertificate:
+  #   Type : AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     Certificates:
+  #       - CertificateArn: !Ref AcmCertificate
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref ALBTargetGroup
+  #     LoadBalancerArn: !Ref ApplicationLoadBalancer
+  #     Port: 443
+  #     Protocol: HTTPS
+
+# Create a Target Group
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200,302
+      Name: SharpstudyWebServers
+      Port: 80
+      Protocol: HTTP
+      UnhealthyThresholdCount: 5
+      VpcId:
+        Fn::ImportValue: !Sub ${EnvironmentName}-VPC
+
+# Create AutoScaling Launch Configuration
+  WebAppAutoScalingLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      # IamInstanceProfile: String
+      ImageId: !Ref AmazonImageID
+      InstanceMonitoring: false  # Enable for CloudWatch which will cost a fee
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups: 
+        - Fn::ImportValue: !Sub ${EnvironmentName}-WebServerSecurityGroup
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install unzip awscli -y
+            apt-get install apache2 -y
+            echo "Healthy" > /var/www/html/index.html
+            systemctl start apache2.service
+
+  WebAppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      DesiredCapacity: '2'
+      # HealthCheckType: ELB
+      HealthCheckGracePeriod: 0
+      LaunchConfigurationName: !Ref WebAppAutoScalingLaunchConfig
+      MaxSize: '5'
+      MinSize: '2'
+      TargetGroupARNs:
+        - Ref: ALBTargetGroup
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnets
+
+Outputs:
+# Export Target Group
+  ALBTargetGroup:
+    Description: Webserver target group
+    Export:
+      Name: !Sub ${EnvironmentName}-ALBTargetGroup
+    Value: !Ref ALBTargetGroup
+
+# Export Application Load Balancer Dns Name
+  ApplicationLoadBalancerDnsName:
+    Description: Application Load Balancer DNS Name
+    Export:
+      Name: !Sub ${EnvironmentName}-ApplicationLoadBalancerDnsName
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+
+# Export Application Load Balancer Zone ID
+  ApplicationLoadBalancerZoneID:
+    Description: Application Load Balancer Canonical Hosted Zone ID
+    Export:
+      Name: !Sub ${EnvironmentName}-ApplicationLoadBalancerZoneID
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID

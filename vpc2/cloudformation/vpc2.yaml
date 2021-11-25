@@ -1,0 +1,515 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  Name:
+    Default: AMIS-CF
+    Description: 'Name of this deployment (will be used for VPC, EC2, loadbalancer, etc)'
+    Type: String
+    MinLength: '1'
+    MaxLength: '15'
+    AllowedPattern: '[a-zA-Z-][a-zA-Z0-9-]*'
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access into the EC2 servers
+    Type: String
+    Default: FRA
+  ImageId:
+    Description: 'AMI ID of the servers to be deployed (for now: Amazon Linux)'
+    Type: String
+    Default: ami-036d46416a34a611c
+  IPAddressTestPC:
+    Description: >-
+      IP Address of the local PC. Will be use to prevent that other people will
+      reach the EC2s.
+    Type: String
+    Default: 86.88.108.53
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-VPC'
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-internetGateway'
+  VPCGatewayAttachmentInternetGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  SubnetAZ1Public:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-subnet-1-public'
+      VpcId: !Ref VPC
+  SubnetAZ1Private:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+      CidrBlock: 10.0.4.0/24
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-subnet-1-private'
+      VpcId: !Ref VPC
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 738c3528-f267-4667-8591-9937635a17ca
+  SubnetAZ2Public:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-subnet-2-public'
+      VpcId: !Ref VPC
+  SubnetAZ2Private:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      CidrBlock: 10.0.5.0/24
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-subnet-2-private'
+      VpcId: !Ref VPC
+  SubnetAZ3Public:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select 
+        - 2
+        - !GetAZs ''
+      CidrBlock: 10.0.3.0/24
+      MapPublicIpOnLaunch: 'true'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-subnet-3-public'
+      VpcId: !Ref VPC
+  SubnetAZ3Private:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Select 
+        - 2
+        - !GetAZs ''
+      CidrBlock: 10.0.6.0/24
+      MapPublicIpOnLaunch: 'false'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-subnet-3-private'
+      VpcId: !Ref VPC
+  ElasticIPForNatGatewayAZ1:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: VPC
+    Properties:
+      Domain: vpc
+  NatGatewayAZ1:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - ElasticIPForNatGatewayAZ1
+        - AllocationId
+      SubnetId: !Ref SubnetAZ1Public
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-natgateway-1'
+  ElasticIPForNatGatewayAZ2:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: VPC
+    Properties:
+      Domain: vpc
+  NatGatewayAZ2:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - ElasticIPForNatGatewayAZ2
+        - AllocationId
+      SubnetId: !Ref SubnetAZ2Public
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-natgateway-2'
+  ElasticIPForNatGatewayAZ3:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: VPC
+    Properties:
+      Domain: vpc
+  NatGatewayAZ3:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - ElasticIPForNatGatewayAZ3
+        - AllocationId
+      SubnetId: !Ref SubnetAZ3Public
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-natgateway-3'
+  PublicSubnetRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-public-subnet-routetable'
+      VpcId: !Ref VPC
+  InternetGatewayRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicSubnetRouteTable
+  SubnetPublicRouteTableAssociationAZ1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicSubnetRouteTable
+      SubnetId: !Ref SubnetAZ1Public
+  SubnetPublicRouteTableAssociationAZ2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicSubnetRouteTable
+      SubnetId: !Ref SubnetAZ2Public
+  SubnetPublicRouteTableAssociationAZ3:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicSubnetRouteTable
+      SubnetId: !Ref SubnetAZ3Public
+  PrivateSubnetRouteTableAZ1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-private-subnet-routetable-AZ1'
+      VpcId: !Ref VPC
+  PrivateGatewayRouteAZ1:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayAZ1
+      RouteTableId: !Ref PrivateSubnetRouteTableAZ1
+  SubnetRouteTableAssociationAZ1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateSubnetRouteTableAZ1
+      SubnetId: !Ref SubnetAZ1Private
+  PrivateSubnetRouteTableAZ2:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-private-subnet-routetable-AZ2'
+      VpcId: !Ref VPC
+  PrivateGatewayRouteAZ2:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayAZ2
+      RouteTableId: !Ref PrivateSubnetRouteTableAZ2
+  SubnetRouteTableAssociationAZ2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateSubnetRouteTableAZ2
+      SubnetId: !Ref SubnetAZ2Private
+  PrivateSubnetRouteTableAZ3:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-private-subnet-routetable-AZ3'
+      VpcId: !Ref VPC
+  PrivateGatewayRouteAZ3:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayAZ3
+      RouteTableId: !Ref PrivateSubnetRouteTableAZ3
+  SubnetRouteTableAssociationAZ3:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateSubnetRouteTableAZ3
+      SubnetId: !Ref SubnetAZ3Private
+  SecurityGroupPublic:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: >-
+        Enable ssh trafic from own PC, http trafic from world and all outgoing
+        trafic
+      GroupName: !Join 
+        - ''
+        - - !Ref Name
+          - '-public-securitygroup'
+      SecurityGroupIngress:
+        - CidrIp: !Join 
+            - ''
+            - - !Ref IPAddressTestPC
+              - /32
+          Description: Allow all trafic from the test PC
+          IpProtocol: '-1'
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all http trafic
+          IpProtocol: tcp
+          ToPort: '80'
+          FromPort: '80'
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all
+          IpProtocol: '-1'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-sg-public'
+      VpcId: !Ref VPC
+  SecurityGroupPrivate:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable all trafic from internal network
+      GroupName: !Join 
+        - ''
+        - - !Ref Name
+          - '-private-securitygroup'
+      SecurityGroupIngress:
+        - CidrIp: 10.0.0.0/16
+          Description: Allow all trafic from within this network
+          IpProtocol: '-1'
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          Description: Allow all trafic to go out
+          IpProtocol: '-1'
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-sg-private'
+      VpcId: !Ref VPC
+  LaunchConfigurationPrivate:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref SecurityGroupPrivate
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash
+            - |
+              yum install httpd -y
+            - |
+              systemctl start httpd
+            - echo '<p>Background info</p>'> /var/www/html/index.html
+  LoadBalancerPrivate:
+    Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
+    Properties:
+      Subnets:
+        - !Ref SubnetAZ1Private
+        - !Ref SubnetAZ2Private
+        - !Ref SubnetAZ3Private
+      Listeners:
+        - InstancePort: '80'
+          InstanceProtocol: HTTP
+          LoadBalancerPort: '80'
+          Protocol: HTTP
+      Scheme: internal
+      SecurityGroups:
+        - !Ref SecurityGroupPrivate
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-lb-private'
+  AutoScalingGroupPrivate:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    DependsOn:
+      - SecurityGroupPublic
+      - PublicSubnetRouteTable
+      - SecurityGroupPrivate
+      - PrivateGatewayRouteAZ1
+      - PrivateGatewayRouteAZ2
+      - PrivateGatewayRouteAZ3
+    Properties:
+      AutoScalingGroupName: !Join 
+        - ''
+        - - !Ref Name
+          - '-asg-group-private'
+      AvailabilityZones: !GetAZs ''
+      DesiredCapacity: '3'
+      LoadBalancerNames:
+        - !Ref LoadBalancerPrivate
+      LaunchConfigurationName: !Ref LaunchConfigurationPrivate
+      MaxSize: '6'
+      MinSize: '2'
+      HealthCheckGracePeriod: 20
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-asg-private'
+          PropagateAtLaunch: 'true'
+      VPCZoneIdentifier:
+        - !Ref SubnetAZ1Private
+        - !Ref SubnetAZ2Private
+        - !Ref SubnetAZ3Private
+  LaunchConfigurationPublic:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref SecurityGroupPublic
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash
+            - |
+              yum install httpd -y
+            - |
+              systemctl start httpd
+            - |
+              echo '<p>Foreground website</p>'> /var/www/html/index.html
+            - 'curl '
+            - !GetAtt 
+              - LoadBalancerPrivate
+              - DNSName
+            - |2
+               >> /var/www/html/index.html
+  LoadBalancerPublic:
+    Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
+    Properties:
+      Subnets:
+        - !Ref SubnetAZ1Public
+        - !Ref SubnetAZ2Public
+        - !Ref SubnetAZ3Public
+      Listeners:
+        - InstancePort: '80'
+          InstanceProtocol: HTTP
+          LoadBalancerPort: '80'
+          Protocol: HTTP
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref SecurityGroupPublic
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-lb-public'
+  AutoScalingGroupPublic:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    DependsOn:
+      - AutoScalingGroupPrivate
+      - SecurityGroupPrivate
+      - PrivateSubnetRouteTableAZ1
+      - PrivateGatewayRouteAZ2
+      - PrivateGatewayRouteAZ3
+    Properties:
+      AutoScalingGroupName: !Join 
+        - ''
+        - - !Ref Name
+          - '-asg-group'
+      AvailabilityZones: !GetAZs ''
+      DesiredCapacity: '3'
+      LoadBalancerNames:
+        - !Ref LoadBalancerPublic
+      LaunchConfigurationName: !Ref LaunchConfigurationPublic
+      MaxSize: '6'
+      MinSize: '2'
+      HealthCheckGracePeriod: 20
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - ''
+            - - !Ref Name
+              - '-asg-public'
+          PropagateAtLaunch: 'true'
+      VPCZoneIdentifier:
+        - !Ref SubnetAZ1Public
+        - !Ref SubnetAZ2Public
+        - !Ref SubnetAZ3Public
+Outputs:
+  LoadBalancerPublicUrl:
+    Value: !GetAtt 
+      - LoadBalancerPublic
+      - DNSName
+    Description: Public URL to our website
+Metadata:
+  'AWS::CloudFormation::Designer':
+    738c3528-f267-4667-8591-9937635a17ca:
+      size:
+        width: 150
+        height: 150
+      position:
+        x: 670
+        'y': 690
+      z: 1
+      embeds: []

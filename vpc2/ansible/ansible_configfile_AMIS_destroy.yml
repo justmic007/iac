@@ -1,0 +1,203 @@
+---
+- hosts: localhost
+  vars:
+    aws_access_key: ""
+    aws_secret_key: ""
+    private_key_path: /home/frederique/Downloads/demo.pem
+    nameprefix: AMIS-Ansible
+    key_name: AMIS
+    image_id: ami-07683a44e80cd32c5
+    ip_address_test_pc: 86.88.108.53
+    cidr_block: 10.0.0.0/16
+    region: eu-west-1
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Get AZ facts
+      aws_az_facts:
+        region: "{{region}}"
+      register: az_facts
+    - name: Get VPC facts
+      ec2_vpc_net_facts:
+        region: "{{region}}"
+        filters:
+          "tag:Name": "{{nameprefix}}-VPC"
+      register: vpc
+    - name: Get public subnet facts
+      ec2_vpc_subnet_facts:
+        filters:
+          "tag:Name": "{{nameprefix}}-public-{{item.cidr_block_no+1}}"
+      register: pub_subnet
+      with_items:
+      - { cidr_block_no: 0 }
+      - { cidr_block_no: 1 }
+      - { cidr_block_no: 2 }
+    - name: Get private subnet facts
+      ec2_vpc_subnet_facts:
+        filters:
+          "tag:Name": "{{nameprefix}}-private-{{item.cidr_block_no+1}}"
+      register: pvt_subnet
+      with_items:
+      - { cidr_block_no: 0 }
+      - { cidr_block_no: 1 }
+      - { cidr_block_no: 2 }
+    - name: "Delete auto scaling group (public)"
+      ec2_asg:
+        state: absent
+        name: "{{nameprefix}}-asg-pub"
+        tags:
+          - Name: "{{nameprefix}}-asg-public"
+        vpc_zone_identifier: 
+          - "{{item.subnet_id}}"
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnets.0.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnets.0.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnets.0.id}}" }
+    - name: "Delete load balancer (public)"
+      ec2_elb_lb:
+        state: absent
+        name: "loadbalancerpublic"
+        region: "{{region}}"
+        subnets:
+          - "{{item.subnet_id}}"
+        wait: yes
+        tags:
+          Name: "{{nameprefix}}-lb-public"
+      register: pub_lb
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnets.0.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnets.0.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnets.0.id}}" }
+    - name: "Delete launch configuration (public)"
+      ec2_lc:
+        state: absent
+        name: "{{nameprefix}}-lc-public"
+        vpc_id: "{{vpc.vpcs.0.id}}"
+      register: pub_lc
+    - name: "Delete auto scaling group (private)"
+      ec2_asg:
+        state: absent
+        name: "{{nameprefix}}-asg-private"
+        tags:
+          - Name: "{{nameprefix}}-asg-private"
+        vpc_zone_identifier: 
+          - "{{item.subnet_id}}"
+      with_items:
+      - { id: 0, subnet_id: "{{pvt_subnet.results.0.subnets.0.id}}" }
+      - { id: 1, subnet_id: "{{pvt_subnet.results.1.subnets.0.id}}" }
+      - { id: 2, subnet_id: "{{pvt_subnet.results.2.subnets.0.id}}" }
+    - name: "Delete load balancer (private)"
+      ec2_elb_lb:
+        state: absent
+        name: "loadbalancerprivate"
+        region: "{{region}}"
+        subnets:
+          - "{{item.subnet_id}}"
+        wait: yes
+        tags:
+          Name: "{{nameprefix}}-lb-private"
+      register: pvt_lb
+      with_items:
+      - { id: 0, subnet_id: "{{pvt_subnet.results.0.subnets.0.id}}" }
+      - { id: 1, subnet_id: "{{pvt_subnet.results.1.subnets.0.id}}" }
+      - { id: 2, subnet_id: "{{pvt_subnet.results.2.subnets.0.id}}" }
+    - name: "Delete launch configuration (private)"
+      ec2_lc:
+        state: absent
+        name: "{{nameprefix}}-lc-private"
+        vpc_id: "{{vpc.vpcs.0.id}}"
+      register: pvt_lc
+    - name: Delete security group (private)
+      ec2_group:
+        state: absent
+        name: "{{nameprefix}}-sg-private"
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        tags:
+          Name: "{{nameprefix}}-sg-private"
+      register: pvt_sg 
+    - name: Delete security group (public)
+      ec2_group:
+        state: absent
+        name: "{{nameprefix}}-sg-public"
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        tags:
+          Name: "{{nameprefix}}-sg-public"
+      register: pub_sg 
+    - name: Delete route table for private subnets
+      ec2_vpc_route_table:
+        state: absent
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        tags:
+          Name: "{{nameprefix}}-private-subnet-routetable-{{item.id}}"
+      register: private_route_table
+      with_items:
+      - { id: 0}
+      - { id: 1}
+      - { id: 2}
+    - name: Delete route table for public subnets
+      ec2_vpc_route_table:
+        state: absent
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        tags:
+          Name: "{{nameprefix}}-public-subnet-routetable"
+      register: public_route_table
+    - name: Facts about NAT Gateways
+      ec2_vpc_nat_gateway_facts:
+        filters:
+          subnet-id: "{{item.subnet_id}}"
+      register: nat_gateway_id
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnets.0.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnets.0.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnets.0.id}}" }
+    - name: Delete NAT Gateways
+      ec2_vpc_nat_gateway:
+        state: absent
+        nat_gateway_id: "{{item.nat_gateway_id}}"
+        wait: yes
+        wait_timeout: 600
+      register: natgateway
+      with_items:
+      - { id: 0, nat_gateway_id: "{{nat_gateway_id.results.0.result.0.nat_gateway_id}}" }
+      - { id: 1, nat_gateway_id: "{{nat_gateway_id.results.1.result.0.nat_gateway_id}}" }
+      - { id: 2, nat_gateway_id: "{{nat_gateway_id.results.2.result.0.nat_gateway_id}}" }
+    - name: Delete AWS Private Subnets
+      ec2_vpc_subnet:
+        state: absent
+        cidr: "{{cidr_block | ipsubnet(24,item.cidr_block_no+4)}}"
+        az: "{{item.az}}"
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        tags:
+          Name: "{{nameprefix}}-private-{{item.cidr_block_no+1}}"
+      register: pvt_subnet
+      with_items:
+      - { cidr_block_no: 0, az: "{{az_facts.availability_zones.0.zone_name}}" }
+      - { cidr_block_no: 1, az: "{{az_facts.availability_zones.1.zone_name}}" }
+      - { cidr_block_no: 2, az: "{{az_facts.availability_zones.2.zone_name}}" }
+    - name: Delete AWS Public Subnets
+      ec2_vpc_subnet:
+        state: absent
+        cidr: "{{cidr_block | ipsubnet(24,item.cidr_block_no+1)}}"
+        az: "{{item.az}}"
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        tags:
+          Name: "{{nameprefix}}-public-{{item.cidr_block_no+1}}"
+      register: pub_subnet
+      with_items:
+      - { cidr_block_no: 0, az: "{{az_facts.availability_zones.0.zone_name}}" }
+      - { cidr_block_no: 1, az: "{{az_facts.availability_zones.1.zone_name}}" }
+      - { cidr_block_no: 2, az: "{{az_facts.availability_zones.2.zone_name}}" }
+    - name: Delete Internet Gateway
+      ec2_vpc_igw:
+        state: absent
+        vpc_id: "{{vpc.vpcs.0.id}}"
+        region: "{{region}}"
+        tags: 
+          Name: "{{nameprefix}}-internetgateway"
+      register: igw
+    - name: Delete VPC
+      ec2_vpc_net:
+        state: absent
+        cidr_block: "{{cidr_block}}"
+        name: "{{nameprefix}}-VPC"
+      register: vpc

@@ -1,0 +1,248 @@
+---
+- hosts: localhost
+  vars:
+    aws_access_key: ""
+    aws_secret_key: ""
+    private_key_path: /home/frederique/Downloads/demo.pem
+    nameprefix: AMIS-Ansible
+    key_name: demo
+    image_id: ami-07683a44e80cd32c5
+    ip_address_test_pc: 185.108.224.4
+    cidr_block: 10.0.0.0/16
+    region: eu-west-1
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Get AZ facts
+      aws_az_facts:
+        region: "{{region}}"
+      register: az_facts
+    - name: Create VPC
+      ec2_vpc_net:
+        cidr_block: "{{cidr_block}}"
+        name: "{{nameprefix}}-VPC"
+      register: vpc
+    - name: Create Internet Gateway
+      ec2_vpc_igw:
+        vpc_id: "{{vpc.vpc.id}}"
+        region: "{{region}}"
+        tags: 
+          Name: "{{nameprefix}}-internetgateway"
+      register: igw
+    - name: Create AWS Public Subnets
+      ec2_vpc_subnet:
+        cidr: "{{cidr_block | ipsubnet(24,item.cidr_block_no+1)}}"
+        az: "{{item.az}}"
+        vpc_id: "{{vpc.vpc.id}}"
+        map_public: yes
+        tags:
+          Name: "{{nameprefix}}-public-{{item.cidr_block_no+1}}"
+      register: pub_subnet
+      with_items:
+      - { cidr_block_no: 0, az: "{{az_facts.availability_zones.0.zone_name}}" }
+      - { cidr_block_no: 1, az: "{{az_facts.availability_zones.1.zone_name}}" }
+      - { cidr_block_no: 2, az: "{{az_facts.availability_zones.2.zone_name}}" }
+    - name: Create AWS Private Subnets
+      ec2_vpc_subnet:
+        cidr: "{{cidr_block | ipsubnet(24,item.cidr_block_no+4)}}"
+        az: "{{item.az}}"
+        vpc_id: "{{vpc.vpc.id}}"
+        map_public: no
+        tags:
+          Name: "{{nameprefix}}-private-{{item.cidr_block_no+1}}"
+      register: pvt_subnet
+      with_items:
+      - { cidr_block_no: 0, az: "{{az_facts.availability_zones.0.zone_name}}" }
+      - { cidr_block_no: 1, az: "{{az_facts.availability_zones.1.zone_name}}" }
+      - { cidr_block_no: 2, az: "{{az_facts.availability_zones.2.zone_name}}" }
+    - name: Create NAT Gateways
+      ec2_vpc_nat_gateway:
+        subnet_id: "{{item.subnet_id}}"
+        if_exist_do_not_create: yes
+        wait: yes
+        wait_timeout: 600
+      register: natgateway
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnet.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnet.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnet.id}}" }
+    - name: Create route table for public subnets
+      ec2_vpc_route_table:
+        vpc_id: "{{vpc.vpc.id}}"
+        routes:
+          - dest: "0.0.0.0/0" 
+            gateway_id: "{{igw.gateway_id}}" 
+        subnets:
+          - "{{item.subnet_id}}"
+        tags:
+          Name: "{{nameprefix}}-public-subnet-routetable"
+      register: public_route_table
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnet.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnet.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnet.id}}" }
+    - name: Create route table for private subnets
+      ec2_vpc_route_table:
+        vpc_id: "{{vpc.vpc.id}}"
+        routes:
+          - dest: "0.0.0.0/0" 
+            gateway_id: "{{item.gateway_id}}" 
+        subnets:
+          - "{{item.subnet_id}}"
+        tags:
+          Name: "{{nameprefix}}-private-subnet-routetable-{{item.id}}"
+      register: private_route_table
+      with_items:
+      - { id: 0, gateway_id: "{{natgateway.results.0.nat_gateway_id}}", subnet_id: "{{pvt_subnet.results.0.subnet.id}}" }
+      - { id: 1, gateway_id: "{{natgateway.results.1.nat_gateway_id}}", subnet_id: "{{pvt_subnet.results.1.subnet.id}}" }
+      - { id: 2, gateway_id: "{{natgateway.results.2.nat_gateway_id}}", subnet_id: "{{pvt_subnet.results.2.subnet.id}}" }
+    - name: Create security group (public)
+      ec2_group:
+        description: "Enable all traffic from own PC, http traffic from all and all outgoing traffic"
+        name: "{{nameprefix}}-sg-public"
+        rules:
+          - rule_desc: "Allow all traffic from own PC"
+            from_port: 0
+            to_port: 0
+            proto: all
+            cidr_ip: "{{ip_address_test_pc}}/32"
+          - rule_desc: "Allow all http traffic"
+            ports: 80
+            proto: tcp
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - rule_desc: "Allow all"
+            from_port: 0
+            to_port: 0
+            proto: all
+            cidr_ip: 0.0.0.0/0
+        vpc_id: "{{vpc.vpc.id}}"
+        tags:
+          Name: "{{nameprefix}}-sg-public"
+      register: pub_sg 
+    - name: Create security group (private)
+      ec2_group:
+        description: "Enable all traffic from internal network"
+        name: "{{nameprefix}}-sg-private"
+        rules:
+          - rule_desc: "Allow all traffic from internal network"
+            from_port: 0
+            to_port: 0
+            proto: all
+            cidr_ip: "{{cidr_block}}"
+        rules_egress:
+          - rule_desc: "Allow all"
+            from_port: 0
+            to_port: 0
+            proto: all
+            cidr_ip: 0.0.0.0/0
+        vpc_id: "{{vpc.vpc.id}}"
+        tags:
+          Name: "{{nameprefix}}-sg-private"
+      register: pvt_sg 
+    - name: "Create launch configuration (private)"
+      ec2_lc:
+        name: "{{nameprefix}}-lc-private"
+        image_id: "{{image_id}}"
+        instance_type: "t2.micro"
+        key_name: "{{key_name}}"
+        security_groups: 
+          - "{{pvt_sg.group_id}}"
+        user_data: |
+          #!/bin/bash
+          yum install httpd -y
+          systemctl start httpd
+          echo '<p>Background info</p>' > /var/www/html/index.html
+        vpc_id: "{{vpc.vpc.id}}"
+      register: pvt_lc
+    - name: "Create load balancer (private)"
+      ec2_elb_lb:
+        name: "{{nameprefix}}-lb-private"
+        region: "{{region}}"
+        subnets:
+          - "{{item.subnet_id}}"
+        scheme: internal
+        state: present
+        listeners:
+          - protocol: http
+            load_balancer_port: 80
+            instance_port: 80
+        security_group_names: "{{nameprefix}}-sg-private"
+        tags:
+          Name: "{{nameprefix}}-lb-private"
+      register: pvt_lb
+      with_items:
+      - { id: 0, subnet_id: "{{pvt_subnet.results.0.subnet.id}}" }
+      - { id: 1, subnet_id: "{{pvt_subnet.results.1.subnet.id}}" }
+      - { id: 2, subnet_id: "{{pvt_subnet.results.2.subnet.id}}" }
+    - name: "Create auto scaling group (private)"
+      ec2_asg:
+        name: "{{nameprefix}}-asg-private"
+        load_balancers: ["{{pvt_lb.results.0.elb.name}}"]
+        launch_config_name: "{{nameprefix}}-lc-private"
+        desired_capacity: 3
+        min_size: 2
+        max_size: 6
+        health_check_period: 20
+        tags:
+          - Name: "{{nameprefix}}-asg-private"
+        vpc_zone_identifier: 
+          - "{{item.subnet_id}}"
+      with_items:
+      - { id: 0, subnet_id: "{{pvt_subnet.results.0.subnet.id}}" }
+      - { id: 1, subnet_id: "{{pvt_subnet.results.1.subnet.id}}" }
+      - { id: 2, subnet_id: "{{pvt_subnet.results.2.subnet.id}}" }
+    - name: "Create launch configuration (public)"
+      ec2_lc:
+        name: "{{nameprefix}}-lc-public"
+        image_id: "{{image_id}}"
+        instance_type: "t2.micro"
+        key_name: "{{key_name}}"
+        security_groups: 
+          - "{{pub_sg.group_id}}"
+        user_data: |
+          #!/bin/bash
+          yum install httpd -y
+          systemctl start httpd
+          echo '<p>Foreground website</p>' > /var/www/html/index.html
+          curl {{pvt_lb.results.0.elb.dns_name}} >> /var/www/html/index.html
+        vpc_id: "{{vpc.vpc.id}}"
+      register: pub_lc
+    - name: "Create load balancer (public)"
+      ec2_elb_lb:
+        name: "{{nameprefix}}-lb-public"
+        region: "{{region}}"
+        subnets:
+          - "{{item.subnet_id}}"
+        scheme: internet-facing
+        security_group_names: "{{nameprefix}}-sg-public"
+        state: present
+        listeners:
+          - protocol: http
+            load_balancer_port: 80
+            instance_port: 80
+        tags:
+          Name: "{{nameprefix}}-lb-public"
+      register: pub_lb
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnet.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnet.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnet.id}}" }
+    - name: "Create auto scaling group (public)"
+      ec2_asg:
+        name: "{{nameprefix}}-asg-pub"
+        load_balancers: ["{{pub_lb.results.0.elb.name}}"]
+        launch_config_name: "{{nameprefix}}-lc-public"
+        desired_capacity: 3
+        min_size: 2
+        max_size: 6
+        health_check_period: 20
+        tags:
+          - Name: "{{nameprefix}}-asg-public"
+        vpc_zone_identifier: 
+          - "{{item.subnet_id}}"
+      with_items:
+      - { id: 0, subnet_id: "{{pub_subnet.results.0.subnet.id}}" }
+      - { id: 1, subnet_id: "{{pub_subnet.results.1.subnet.id}}" }
+      - { id: 2, subnet_id: "{{pub_subnet.results.2.subnet.id}}" }
+    - debug: "msg={{pub_lb.results.0.elb.dns_name}}"

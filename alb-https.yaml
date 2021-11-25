@@ -18,13 +18,37 @@ Metadata:
 
 Parameters:
   AcmCertificate:
-    Default: arn:aws:acm:us-west-2:080196198125:certificate/0835663a-4e52-4d6c-9fbd-ea15e8fd5190
+    Default: arn:aws:acm:us-west-2:080196198125:certificate/c7a5beb7-a0d4-4630-a6c8-825e192b1ded
     Description: The ARN of the AWS Certification Manager's Certificate
     Type: String
 
   EnvironmentName:
     Description: An environment name that will be prefixed to resource names
     Type: String
+
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.micro
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  AmazonImageID:
+    Description: The ID of the Amazon machine image (AMI)
+    Type: String
+    Default: ami-036d46416a34a611c
+    AllowedValues:
+      - ami-036d46416a34a611c
+      - ami-09889d8d54f9e0a0e
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
 
 Resources:
 #Create an Application Load Balancer
@@ -47,7 +71,7 @@ Resources:
         - RedirectConfig:
             Host: '#{host}'
             Path: '/#{path}'
-            Port: '443'
+            Port: 443
             Protocol: HTTPS
             StatusCode: HTTP_301
           Type: redirect
@@ -63,8 +87,7 @@ Resources:
         - CertificateArn: !Ref AcmCertificate
       DefaultActions:
         - Type: forward
-          TargetGroupArn:
-            - Ref: ALBTargetGroup
+          TargetGroupArn: !Ref ALBTargetGroup
       LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 443
       Protocol: HTTPS
@@ -75,6 +98,7 @@ Resources:
     Properties:
       HealthCheckIntervalSeconds: 10
       HealthCheckPath: /
+      HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       Matcher:
@@ -85,6 +109,42 @@ Resources:
       UnhealthyThresholdCount: 5
       VpcId:
         Fn::ImportValue: !Sub ${EnvironmentName}-VPC
+
+# Create AutoScaling Launch Configuration
+  WebAppAutoScalingLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      # IamInstanceProfile: String
+      ImageId: !Ref AmazonImageID
+      InstanceMonitoring: false  # Enable for CloudWatch which will cost a fee
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroups: 
+        - Fn::ImportValue: !Sub ${EnvironmentName}-WebServerSecurityGroup
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            apt-get update -y
+            apt-get install unzip awscli -y
+            apt-get install apache2 -y
+            echo "Healthy" > /var/www/html/index.html
+            systemctl start apache2.service
+
+  WebAppAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties: 
+      DesiredCapacity: '2'
+      # HealthCheckType: ELB
+      HealthCheckGracePeriod: 0
+      LaunchConfigurationName: !Ref WebAppAutoScalingLaunchConfig
+      MaxSize: '5'
+      MinSize: '2'
+      TargetGroupARNs:
+        - Ref: ALBTargetGroup
+      VPCZoneIdentifier:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-PrivateSubnets
+
 
 Outputs:
 # Export Target Group
